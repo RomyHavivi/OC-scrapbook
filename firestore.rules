@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'danielle.yonatan.mittler@gmail.com';
+    }
+
+    function validCharacter(data) {
+      return data.keys().hasOnly([
+          'name', 'description', 'worldId', 'heroImageUrl', 'heroImagePath',
+          'images', 'notes', 'order', 'updatedAt'
+        ])
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 100
+        && data.description is string
+        && (data.worldId == null || data.worldId is string)
+        && data.heroImageUrl is string
+        && data.heroImagePath is string
+        && data.images is list
+        && data.notes is list
+        && data.order is int;
+    }
+
+    function validSticker(data) {
+      return data.keys().hasOnly(['name', 'url', 'storagePath', 'createdAt'])
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 255
+        && data.url is string
+        && data.url.size() > 0
+        && data.storagePath is string
+        && data.storagePath.matches('^stickers/[^/]+/[^/]+$')
+        && data.createdAt is string;
+    }
+
+    function validStickerPlacement(data) {
+      return data.keys().hasOnly(['stickerId', 'pageId', 'x', 'y', 'updatedAt'])
+        && data.stickerId is string
+        && data.stickerId.size() > 0
+        && data.pageId is string
+        && data.pageId.size() > 0
+        && data.pageId.size() <= 200
+        && data.x is number
+        && data.x >= 0
+        && data.x <= 0.77
+        && data.y is number
+        && data.y >= 0
+        && data.y <= 0.68
+        && data.updatedAt is string;
+    }
+
+    match /characters/{characterId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && validCharacter(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /worlds/{worldId} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['name', 'color'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.color is string
+        && request.resource.data.color.matches('^#[0-9a-fA-F]{6}$');
+      allow delete: if isAdmin();
+    }
+
+    match /stickers/{stickerId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && validSticker(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /stickerPlacements/{placementId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && validStickerPlacement(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

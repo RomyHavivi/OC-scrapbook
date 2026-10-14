@@ -1,0 +1,68 @@
+# Current Project Specification
+
+## Confirmed requirements and decisions
+
+- Present original characters as a personal scrapbook inside an interactive book, with a handcrafted, layered visual language.
+- A character's section begins on the left page. Biography text flows left-to-right and continues onto additional pages as needed, always alternating sides. An unused facing page remains intentionally empty; the next character starts on a fresh left page after the previous character's section.
+- Users can turn pages, jump to a character from a contents list, return directly to contents, and close the book to the cover.
+- Design for up to about 40 characters. The table of contents may span multiple physical pages.
+- Characters belong to at most one optional world. A world has a name and tag color. Tags identify shared settings; no relationship graph is wanted.
+- Character content includes biography text, one featured image, optional extra images, and notes. The admin chooses left/right placement for each photo and note; each note also has a 3 × 3 top/middle/bottom and left/center/right anchor. Biography text flows automatically.
+- Keep a stable spread layout with restrained, deterministic visual variation.
+- The public book must be usable on phones and desktop.
+- Use Firebase for authentication, persistent data, and image storage. Admin sign-in uses email/password.
+- Admin supports adding, editing, deleting, and manually reordering characters; managing worlds; and immediate publishing (no drafts initially).
+- Admin can upload sticker images and place, reposition, and remove them on the cover or individual physical pages; placements are persistent and page-relative.
+- Work in validated phases; distinguish requirements from recommendations and do not treat a running skeleton as a finished product.
+
+## Phase 1 design specification
+
+- **References:** Direct inspection of the supplied AnyFlip example showed a centered book page on a neutral background, with a toolbar, page counter, and previous/next controls; the sample begins at its cover. Borrow the book presentation and navigation concepts, not its branding. The supplied Paper app description guides the scrapbook's personal, layered visual direction. Its historical app URL was unavailable during checking, so no unverified interface observations are claimed. Do not copy either product's branding, assets, or layout.
+- **Book structure:** hard front cover, inside blank page, generated contents pages, then two pages per character. Generate enough contents pages and add a blank alignment page if necessary so each character begins on a left page. Derive destination indices from the generated page structure, not a fixed three-page offset.
+- **Navigation:** while open, provide Contents and Close book controls. Contents jumps directly to the contents section; Close book returns directly to the cover. Sequential flips remain available. Direct character jumps must finish at the start of the correct spread and must not require a long sequence of slow flips.
+- **Character spreads:** keep a consistent hierarchy. Measure rendered text and split at sensible word boundaries rather than using character count. Biography text may use additional pages, alternating left/right until complete; pad the final page pair when needed so the following character starts on the left. Keep optional extra images and notes on the initial left or right page as assigned. Use deterministic rotations/variation only where they do not hurt readability.
+- **Worlds and contents:** store a single optional world reference on each character. Derive world name/color/tag presentation from the world record so edits update all entries consistently. Paginate the physical contents list and include readable world labels.
+- **Admin workflow:** use a clear editing index/form separate from the flipbook. Support character/world forms, image upload, left/right object placement, deletion confirmation, persistent manual ordering, and explicit save/error feedback. Changes publish immediately.
+- **Data model recommendation:** Firestore `worlds` documents contain `name` and `color`; `characters` documents contain `name`, `description`, optional `worldId`, `heroImageUrl`/`heroImagePath`, ordered extra images, ordered notes with left/right page, top/middle/bottom, and left/center/right anchor properties, and `order`. Store image files in Firebase Storage and their storage paths/download URLs with character records. Validate Firestore and Storage rules so only the authenticated admin can write; frontend route hiding is not a security boundary.
+- **Sticker data:** Firestore `stickers` documents store the image name, download URL, and Storage path. `stickerPlacements` documents reference a sticker and a stable physical page ID, with normalized page-relative coordinates. Sticker files are stored under `stickers/` in Firebase Storage. Public users may read published stickers and placements; only the configured admin may write or delete them.
+- **Architecture:** retain React/Vite, React Router, and `react-pageflip`; use Firebase Auth, Firestore, and Storage. Separate data access from presentation. Keep local placeholder fallback explicit for development and do not silently replace production data with placeholders on read errors. Netlify is the selected hosting provider; its build and SPA rewrite settings are in `netlify.toml`.
+- **Responsive/accessibility:** preserve the book metaphor while scaling pages or using a one-page portrait mode on narrow screens. Keep direct contents navigation. Provide keyboard page-turn controls, visible focus, descriptive image alt text, and reduced-motion behavior. Validate mobile and desktop layouts.
+- **Testing:** verify contents pagination and direct jumps at 40 characters; close/contents shortcuts from any page; left-page starts; text overflow and empty right pages; object placement; world tag updates; authenticated CRUD and storage rules; persistence on reload; mobile, keyboard, reduced-motion, and production build behavior.
+
+## Current implementation observed
+
+- Vite, React, React Router, `react-pageflip`, and Firebase dependencies are present.
+- The public book renders four local placeholder characters and two placeholder worlds. Contents now paginate at ten entries per physical page; forty characters produce four contents pages.
+- On desktop the flipbook now uses a landscape two-page spread; narrow screens use a one-page portrait mode. Browser-verified at 1264px and 390px viewport widths.
+- Selecting a nearby character animates to its spread; distant jumps go directly to the correct spread rather than requiring many slow flips. Browser-verified that both Rowan and distant character Nell open on the left with their matching right-side notes.
+- Open-book controls provide direct Contents and Close book actions. Returning from a distant character to contents was browser-verified.
+- Page-index calculation adds an alignment page when needed so all characters begin on left-side page indices. Forty-character pagination/alignment was browser-verified.
+- Character text is measured against the left-page text area, the first right-page text area (which reserves space for photos), and full continuation pages. It splits at word boundaries and uses as many extra pages as needed; no page-level scrollbar is used. Extra photos can be assigned to either initial page; notes can be assigned to either page and one of nine top/middle/bottom plus left/center/right anchors. Notes float above page content, so avoid placing them over important text or other notes. Existing notes without position values default to the bottom-right anchor. The featured portrait remains with the character name on the left.
+- Long-text browser test (temporary fixture, restored afterward): 24 repeated biography sections occupied 11 text pages plus one blank alignment page (12 pages total) before the next character. Physical page turns continued the story left/right; a direct TOC jump landed on the next character's left page, and its note remained on the right.
+- Mobile text overflow fix: biography measurement pages now match the active flipbook page's rendered dimensions and update on viewport changes. At a 390px viewport, checked all visible biography pages from the long temporary emulator content; no rendered paragraph exceeded its page text area. Resizing back to desktop updated measurements to 420 × 560, preserved a valid page index, and showed no text overflow.
+- Forty-character browser test (temporary emulator records, cleaned up afterward): contents rendered across four pages with ten entries per page; the new world labels fit without content overflow. Direct jumps to character 40 landed on its left page in desktop spread mode on repeated checks, and Close book returned to the cover. Earlier 390px portrait testing showed no horizontal overflow. The two pre-existing emulator characters were preserved.
+- Visual refinement pass: contents now use a consistent handwritten heading, folio, subtle dividers, and compact color-coded world labels; the character opening page repeats its world label beside the name. Confirmed ten TOC entries and world labels fit within the fixed-height page.
+- Tactile surface pass: the cover is now a pink, whimsical scrapbook design with a stitched border, taped paper title card, and playful decorative accents; pages retain their locally generated paper-grain tile with warm fibers and edge shading, while the stage, photo mounts, tape, and sticky notes keep their tactile treatments.
+- Route access: a small persistent Admin link is available from the public book, and View book links return to `/` from the admin sign-in and management screens.
+- The cover artwork is nested inside the page element so pageflip positioning does not remove its styles. A Close book control returns to the cover.
+- `/admin` supports Firebase email/password sign-in, live character/world lists, create/edit/delete, character ordering, portrait/extra-photo uploads, object-side assignment, and immediate publishing. The public book listens to Firestore when configured and uses sample data only when Firebase is not configured; read failures are shown rather than masked by sample data.
+- Firestore and Storage rules allow public reads and restrict writes to the administrator email explicitly allowlisted in both rules files. The local Firebase Emulator Suite is configured with a demo project ID, fake emulator settings, and these same rules; live authenticated operations still require the user's Firebase project and deployment-side verification.
+
+## Constraints and open deployment item
+
+- Fixed 420 × 560 page dimensions are an implementation detail, not a confirmed requirement; mobile support requires responsive sizing or portrait behavior.
+- Long profiles add pages to that character's section and push later characters farther into the book; navigation derives its destinations from the measured page counts.
+- The four local samples still do not validate all real content. They remain available when Firebase is unconfigured; when Firebase is configured, the database is authoritative.
+- Production Firebase configuration and Netlify account/repository connection remain to be completed by the owner before deployment.
+- Photo/note positioning is by page side, not arbitrary drag positioning, to keep editing practical and layouts maintainable.
+
+## Phase tracking
+
+- Requirements and design direction: gathered from the supplied brief and decisions above; reference access was partial.
+- Persistent admin: CRUD, ordering, uploads, public Firestore subscriptions, and Firebase rule templates are implemented. Live authenticated CRUD, deployed-rule verification, and broader real-content validation remain.
+- Visual identity: the pink scrapbook cover, textured paper/wood surfaces, tactile note and photo treatments, page-content insets/gutter, and world labels are implemented. The cover uses original handmade accents rather than show-specific artwork. The current pass was checked in the browser; broader review with real character content remains.
+- Navigation: desktop-facing spreads, narrow-screen portrait mode, paginated contents, Contents and Close book controls, left-page alignment, keyboard page turns, and reduced-motion support are implemented. The 40-character TOC layout, repeated direct jumps to the final character, left-page alignment, and close-book behavior were browser-verified. An earlier test appeared to land one character early but could not be reproduced with a controlled repeat.
+- Character text continuation: measured word-boundary flow across as many pages as needed is implemented and browser-tested with a long temporary fixture. Page scrollbars are removed, and the next character starts on the next left page. Optional extra photos and notes support left/right page assignment; editor controls and broader real-content validation remain.
+- Emulator-backed Firebase CRUD/rule checks can be run locally without deployment. Live Firebase configuration, real-content validation, and production/deployment testing remain outstanding.
+- Sticker administration: uploaded assets, page-specific placement, drag-to-reposition, per-placement removal, and public display are implemented. Emulator validation of upload, persistence after page turns/reload, cleanup, and admin-only write rules remains.
+- Netlify deployment: `netlify.toml` configures the Vite build, `dist` output, Node 22, and SPA route fallback. Production Firebase values, rule email allowlist, authorized Netlify domain, and Netlify repository connection must be set up before first deploy.

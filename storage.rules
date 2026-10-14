@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'danielle.yonatan.mittler@gmail.com';
+    }
+
+    match /characters/{characterId}/{fileName} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    match /stickers/{stickerId}/{fileName} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+  }
+}

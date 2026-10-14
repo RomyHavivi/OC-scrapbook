@@ -1,0 +1,32 @@
+/* Phase 3 design tokens — warm journal palette, tactile CSS surfaces,
+   Caveat for handwritten elements, Source Serif 4 for readable body text. */
+
+:root {
+  /* Paper */
+  --paper-cream: #f4ecd8;
+  --paper-cream-dark: #ecdfc0;
+  --paper-edge-shadow: rgba(90, 62, 34, 0.18);
+
+  /* Cover / structural browns */
+  --cover-brown: #5b3a24;
+  --cover-brown-dark: #432a1a;
+  --ink-brown: #3a2a1a;
+  --ink-brown-soft: #6b4f37;
+
+  /* Warm accent set for sticky notes / tape — varied but warm, not neon */
+  --note-yellow: #f3d978;
+  --note-peach: #f0b485;
+  --note-rose: #e2949a;
+  --note-sage: #b7c091;
+  --note-sky: #a9c6c4;
+
+  --tape-tan: rgba(214, 184, 138, 0.75);
+
+  /* Typography */
+  --font-hand: "Caveat", cursive;
+  --font-body: "Source Serif 4", Georgia, serif;
+
+  /* Shadow */
+  --shadow-soft: 2px 3px 6px rgba(58, 42, 26, 0.25);
+  --shadow-page: 0 0 18px rgba(0, 0, 0, 0.35);
+}
