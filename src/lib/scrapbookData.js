@@ -8,57 +8,34 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
-import {
-  deleteObject,
-  getDownloadURL,
-  ref,
-  uploadBytes,
-} from "firebase/storage";
 import { db } from "./firebase";
-import { storage } from "./firebaseAdmin";
+import { auth } from "./firebaseAdmin";
+import { deleteMedia, uploadMedia } from "./mediaStorage";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 function requireFirebase() {
-  if (!db || !storage) {
+  if (!db || !auth) {
     throw new Error("Firebase is not configured. Add the project settings to .env and restart the app.");
   }
 }
 
 async function uploadImage(characterId, file) {
-  if (!file.type.startsWith("image/")) {
-    throw new Error(`"${file.name}" is not an image file.`);
-  }
   if (file.size > MAX_IMAGE_SIZE) {
     throw new Error(`"${file.name}" exceeds the 10 MB image limit.`);
   }
-
-  const extension = file.name.match(/\.[a-zA-Z0-9]+$/)?.[0] || "";
-  const storagePath = `characters/${characterId}/${crypto.randomUUID()}${extension}`;
-  const imageRef = ref(storage, storagePath);
-  await uploadBytes(imageRef, file, { contentType: file.type });
-  try {
-    return { url: await getDownloadURL(imageRef), storagePath };
-  } catch (error) {
-    try {
-      await deleteObject(imageRef);
-    } catch (cleanupError) {
-      throw new Error(`Could not retrieve the uploaded image URL (${error.message}) or clean up the upload (${cleanupError.message}).`);
-    }
-    throw error;
-  }
+  return uploadMedia("characters", characterId, file);
 }
 
 async function removeStoredImages(paths) {
   const uniquePaths = [...new Set(paths.filter(Boolean))];
-  const outcomes = await Promise.allSettled(
-    uniquePaths.map((path) => deleteObject(ref(storage, path))),
-  );
-  return outcomes.flatMap((outcome, index) => (
-    outcome.status === "rejected"
-      ? [`Could not delete stored image ${uniquePaths[index]}.`]
-      : []
-  ));
+  if (uniquePaths.length === 0) return [];
+  try {
+    await deleteMedia(uniquePaths);
+    return [];
+  } catch (error) {
+    return [`Could not delete stored images: ${error.message}`];
+  }
 }
 
 export async function saveCharacter(character, previousCharacter) {
@@ -130,7 +107,10 @@ export async function saveCharacter(character, previousCharacter) {
       ),
     };
   } catch (error) {
-    await removeStoredImages(uploadedPaths);
+    const cleanupWarnings = await removeStoredImages(uploadedPaths);
+    if (cleanupWarnings.length) {
+      throw new Error(`${error.message} ${cleanupWarnings.join(" ")}`);
+    }
     throw error;
   }
 }

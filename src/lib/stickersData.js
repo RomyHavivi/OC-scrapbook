@@ -8,19 +8,14 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
-import {
-  deleteObject,
-  getDownloadURL,
-  ref,
-  uploadBytes,
-} from "firebase/storage";
 import { db } from "./firebase";
-import { storage } from "./firebaseAdmin";
+import { auth } from "./firebaseAdmin";
+import { deleteMedia, uploadMedia } from "./mediaStorage";
 
 const MAX_STICKER_SIZE = 10 * 1024 * 1024;
 
 function requireFirebase() {
-  if (!db || !storage) {
+  if (!db || !auth) {
     throw new Error("Firebase is not configured. Add the project settings to .env and restart the app.");
   }
 }
@@ -35,24 +30,18 @@ export async function uploadSticker(file) {
   }
 
   const stickerRef = doc(collection(db, "stickers"));
-  const extension = file.name.match(/\.[a-zA-Z0-9]+$/)?.[0] || "";
-  const storagePath = `stickers/${stickerRef.id}/${crypto.randomUUID()}${extension}`;
-  const imageRef = ref(storage, storagePath);
-  await uploadBytes(imageRef, file, { contentType: file.type });
-
+  const image = await uploadMedia("stickers", stickerRef.id, file);
   try {
-    const url = await getDownloadURL(imageRef);
     const sticker = {
       name: file.name,
-      url,
-      storagePath,
+      ...image,
       createdAt: new Date().toISOString(),
     };
     await setDoc(stickerRef, sticker);
     return { id: stickerRef.id, ...sticker };
   } catch (error) {
     try {
-      await deleteObject(imageRef);
+      await deleteMedia([image.storagePath]);
     } catch (cleanupError) {
       throw new Error(`Could not save the sticker (${error.message}) or clean up its upload (${cleanupError.message}).`);
     }
@@ -95,12 +84,6 @@ export async function deleteSticker(sticker) {
     await batch.commit();
   }
 
-  try {
-    await deleteObject(ref(storage, sticker.storagePath));
-  } catch (error) {
-    if (error.code !== "storage/object-not-found") {
-      throw new Error(`Sticker placements were removed, but its uploaded file could not be deleted: ${error.message}`);
-    }
-  }
+  await deleteMedia([sticker.storagePath]);
   await deleteDoc(doc(db, "stickers", sticker.id));
 }
